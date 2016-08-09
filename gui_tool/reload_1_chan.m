@@ -1,0 +1,125 @@
+function reload_1_chan(y, t)
+t_meas = t / 1000;
+v1 = y / 20;
+
+% function reload_1_chan
+% load voltage_1_chan.mat;
+% load t_meas.mat;
+
+window_size_int = 10;
+noverlap_pts_int = 0;
+nfft_pts_int = 10;
+sample_rate = 1e10;
+cut_off_freq = 5e9;
+T_MIN = 0;
+T_MAX = 500;
+F_MIN = 0;
+F_MAX = 5e9;
+WINDOW_MIN = 10;
+WINDOW_MAX = 10000;
+NFFT_MIN = 10;
+NFFT_MAX = 10000;
+OVERLAP_MIN = 0;
+OVERLAP_MAX = 1;
+
+[S,F,T,P] = spectrogram(double(v1),window_size_int,noverlap_pts_int,nfft_pts_int,sample_rate); % kernal function of STFFT
+%S---输入信号x的短时傅里叶变换
+%F---在输入变量中使用F频率向量
+%T---频谱图计算的时刻点
+%P---能量谱密度PSD(Power Spectral Density)
+
+index = find(F > cut_off_freq);
+F(index) = [];
+S(index,:) = [];
+P(index,:) = [];
+
+figure;
+ax1 = subplot(2,1,1);
+plot(1e6*t_meas,v1,'linewidth',2,'Color','r');
+xlabel('Time (us)','fontsize',14);
+ylabel('Voltage (V)','fontsize',14);
+set(gca,'Position',[.05 .62 .92 .35]);%deternmine the place of the image
+grid on;
+set(findobj('type','axes'),'fontsize',14);
+
+ax2 = subplot(2,1,2);
+surf(1e6*T,F,10*log10(P),'edgecolor','none');
+axis tight, view(0,90);
+%     colorbar('vert');
+xlabel ('Time (us)','fontsize',14);
+ylabel ('Frequency (Hz)','fontsize',14);
+colorbar off;
+linkaxes([ax1,ax2],'x');
+set(gca,'Position',[.05 .20 .92 .35]);%deternmine the place of the image
+set(findobj('type','axes'),'fontsize',14);
+
+
+uicontrol('style','text','String','time min','position',[10 85 90 20],'FontSize',10);
+uicontrol('style','text','String','time max','position',[10 60 90 20],'FontSize',10);
+uicontrol('style','text','String','freq. min','position',[10 35 90 20],'FontSize',10);
+uicontrol('style','text','String','freq. max','position',[10 10 90 20],'FontSize',10);
+uicontrol('style','text','String','window size','position',[420 85 90 20],'FontSize',10);
+uicontrol('style','text','String','nfft points','position',[420 60 90 20],'FontSize',10);
+uicontrol('style','text','String','overlap rate','position',[420 35 90 20],'FontSize',10);    
+
+h_t_min = uicontrol('style','slider','Min',T_MIN,'Max',T_MAX,'Value',T_MIN,'position',[110 85 300 20]); % slide of T_MIN
+h_t_max = uicontrol('style','slider','Min',T_MIN,'Max',T_MAX,'Value',T_MAX,'position',[110 60 300 20]); % slide of T_MAX
+h_f_min = uicontrol('style','slider','Min',F_MIN,'Max',F_MAX,'Value',F_MIN,'position',[110 35 300 20]); % slide of F_MIN
+h_f_max = uicontrol('style','slider','Min',F_MIN,'Max',F_MAX,'Value',F_MAX,'position',[110 10 300 20]); % slide of F_MAX
+h_window_size = uicontrol('style','slider','Min',WINDOW_MIN,'Max',WINDOW_MAX,'Value',WINDOW_MIN,'position',[520 85 300 20]); % slide of window_size
+h_nfft_points = uicontrol('style','slider','Min',NFFT_MIN,'Max',NFFT_MAX,'Value',NFFT_MIN,'position',[520 60 300 20]); % slide of nfft points
+h_overlap_rate = uicontrol('style','slider','Min',OVERLAP_MIN,'Max',OVERLAP_MAX,'Value',OVERLAP_MIN,'position',[520 35 300 20]); % slide of overlap rate
+
+addlistener(h_t_min,'ContinuousValueChange',@(hObject,event) makeplot(h_t_min,h_t_max,h_f_min,h_f_max,h_window_size,h_nfft_points,h_overlap_rate,v1,sample_rate));
+addlistener(h_t_max,'ContinuousValueChange',@(hObject,event) makeplot(h_t_min,h_t_max,h_f_min,h_f_max,h_window_size,h_nfft_points,h_overlap_rate,v1,sample_rate));
+addlistener(h_f_min,'ContinuousValueChange',@(hObject,event) makeplot(h_t_min,h_t_max,h_f_min,h_f_max,h_window_size,h_nfft_points,h_overlap_rate,v1,sample_rate));
+addlistener(h_f_max,'ContinuousValueChange',@(hObject,event) makeplot(h_t_min,h_t_max,h_f_min,h_f_max,h_window_size,h_nfft_points,h_overlap_rate,v1,sample_rate));
+addlistener(h_window_size,'ContinuousValueChange',@(hObject,event) makeplot(h_t_min,h_t_max,h_f_min,h_f_max,h_window_size,h_nfft_points,h_overlap_rate,v1,sample_rate));
+addlistener(h_nfft_points,'ContinuousValueChange',@(hObject,event) makeplot(h_t_min,h_t_max,h_f_min,h_f_max,h_window_size,h_nfft_points,h_overlap_rate,v1,sample_rate));
+addlistener(h_overlap_rate,'ContinuousValueChange',@(hObject,event) makeplot(h_t_min,h_t_max,h_f_min,h_f_max,h_window_size,h_nfft_points,h_overlap_rate,v1,sample_rate));    
+
+
+function makeplot(h_t_min,h_t_max,h_f_min,h_f_max,h_window_size,h_nfft_points,h_overlap_rate,v1,sample_rate)
+
+t_min = get(h_t_min,'Value');
+t_max = get(h_t_max,'Value');
+f_min = get(h_f_min,'Value');
+f_max = get(h_f_max,'Value');
+
+window_size = round(get(h_window_size,'Value'));
+nfft_pts = round(get(h_nfft_points,'Value'));
+overlap_rate = get(h_overlap_rate,'Value');
+noverlap_pts = ceil(window_size*(overlap_rate));
+
+uicontrol('style','text','String',num2str(window_size),'position',[830 85 50 20],'FontSize',12);
+uicontrol('style','text','String',num2str(nfft_pts),'position',[830 60 50 20],'FontSize',12);
+uicontrol('style','text','String',num2str(overlap_rate),'position',[830 35 50 20],'FontSize',12);
+
+[S1,F1,T1,P1] = spectrogram(v1,window_size,noverlap_pts,nfft_pts,sample_rate);
+% for Cut_off = 1:1:length(F1)
+%   if F1(Cut_off) > f_max
+%       break;
+%   end
+% end
+% 
+% F1 = F1(1:1:Cut_off);
+% S1 = S1(1:1:Cut_off,:);
+% P1 = P1(1:1:Cut_off,:);
+
+index = find(F1 > f_max);
+F1(index) = [];
+S1(index,:) = [];
+P1(index,:) = [];  
+
+
+surf(1e6*T1,F1,10*log10(P1),'edgecolor','none');
+axis tight, view(0,90);
+xlabel ('Time (us)','fontsize',14);
+ylabel ('Frequency (Hz)','fontsize',14);
+colorbar off;
+set(findobj('type','axes'),'fontsize',14);
+
+axis([t_min,t_max,f_min,f_max]);
+
+drawnow;
+
